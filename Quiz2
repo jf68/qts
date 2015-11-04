@@ -1,0 +1,38 @@
+__author__ = 'JamesFeng'
+# NetID = jf698
+
+import numpy as np
+import pandas as pd
+import pandas.io.data
+import matplotlib.pyplot as plt
+
+
+IAI_p = pd.io.data.DataReader('IAI', 'yahoo', '2015-01-01', '2015-10-07')
+GS_p = pd.io.data.DataReader('GS', 'yahoo', '2015-01-01', '2015-10-07')
+MS_p = pd.io.data.DataReader('MS', 'yahoo', '2015-01-01', '2015-10-07')
+
+#print IAI_p
+IAI_p = np.array(pd.DataFrame(IAI_p)['Adj Close'])
+GS_p = np.array(pd.DataFrame(GS_p)['Adj Close'])
+MS_p = np.array(pd.DataFrame(MS_p)['Adj Close'])
+
+#print IAI_p[-1]
+capital_0 = 1000000
+GS_cap = 500000
+MS_cap = 500000
+
+IAI_shares = capital_0/IAI_p[0]
+GS_shares = GS_cap/GS_p[0]
+MS_shares = MS_cap/MS_p[0]
+
+IAI_pnl = []
+port2_pnl = []
+
+for i in range(0,IAI_p.shape[0]):
+    IAI_pnl.append(IAI_shares*IAI_p[i])
+    port2_pnl.append(GS_shares*GS_p[i] + MS_shares*MS_p[i])
+
+x = np.arange(0,IAI_p.shape[0],1)
+plt.plot(x,IAI_pnl)
+plt.plot(x,port2_pnl)
+plt.show()

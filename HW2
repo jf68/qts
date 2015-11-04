@@ -1,0 +1,345 @@
+#hw2_template.py
+
+#ADD YOUR MODULES HERE
+import math
+import scipy.stats as ss
+import numpy as np #Do not remove or alter this line
+import pandas as pd
+import Quandl
+from collections import OrderedDict as Odict #Do not remove or alter this line
+from decimal import *
+from scipy.optimize import leastsq
+
+"""
+INSTRUCTIONS::::
+
+Please submit this homework by the Oct. 7th 11:59 pm to blackboard with the following naming convention:
+	netID_hw2.py. Homeworks submitted even 1 second after this deadline will not be accepted. If multiple
+	submissions are submitted your last non late submission will be graded.
+
+Please feel free to use any modules/functions you find useful to complete this homework assignment as long as
+you do NOT use any modules/functions that trivialize questions. An example from last homework would be 
+using scipy's newton's method for implementing your function impliedVolNewton(). You will get 0 points
+if you do this. If you are unsure if a function fits this description please send me an email (mtg77) 
+with the function and module name.
+
+As with homework 1 please use 365 days in a year when caluclating time to maturities.
+
+NOTE: DO NOT have any additional print statements other than the ones included in this hw2_template
+for your final submission. You may include them while debugging but comment them out for your 
+final submission. Faliure to do so will result in a lose of points.
+"""
+
+#Question 1
+def BlackScholes(S,K,sigma,T,r,f_x):
+	"""
+	param S: stock price as float
+	param K: strike price as float
+	param sigma: volatility of stock as float
+	param T: time to maturity of option expressed as a year (using 365 days)
+	param r: risk free interest rate as float
+	param f_x: function to use for calculating cdf of a normal distribution as a string where:
+			'a' = ss.norm.cdf
+			'b' = fixed grid trapezoid method
+			'c' = adaptive grid trapezoid method
+
+	This function calculates the call price of an option with the above paramaters using the 
+	specified function as defined by the homework pdf. 
+	
+	return: the call price of the option as float
+
+	Please write a brief comment at the end of this function comparing the time
+	taken for each paramater of f_x
+	"""
+	price = 0 #Do not remove or alter this line
+
+	S = float(S)
+	K = float(K)
+	T = float(T)
+	sigma = float(sigma)
+	r = float(r)
+
+	d1 = ((math.log(S/K) + (r + 0.5*sigma*sigma)*T)) / float(sigma*math.sqrt(T))
+	d2 = d1 - sigma*math.sqrt(T)
+
+	h = lambda x: np.exp(-0.5*x**2)/(np.sqrt(2*np.pi))
+	Tr = lambda a, b: 0.5*(b-a)*(h(a)+h(b))
+
+	if f_x == 'a':
+		#print S,K,r,T,sigma
+		price = ss.norm.cdf(d1)*S - ss.norm.cdf(d2)*K*math.exp(-r*T)
+
+	elif f_x == 'b':
+		x1 = -100.0
+		x2 = d1
+		x3 = d2
+
+		def Trap(t1,t2):
+			step = 0.01/(t2 - t1)
+			a = t1
+			b = t1 + step
+			sum = 0
+			while a <= t2:
+				sum += 0.5*step*(h(a) + h(b))
+				a = b
+				b += step
+			return sum
+
+		cdf1 = Trap(x1,x2)
+		cdf2 = Trap(x1,x3)
+
+		price = cdf1*S - cdf2*K*math.exp(-r*T)
+
+	elif f_x == 'c':
+		def Rr(a,b):
+			c = (a+b)/2.0
+			epsilon = 0.00001
+			if abs(Tr(a,b)-Tr(a,c)-Tr(c,b)) < epsilon:
+				return Tr(a,c)+Tr(c,b)
+
+			return Rr(a,c) + Rr(c,b)
+		x1 = -10.0
+		x2 = d1
+		x3 = d2
+		cdf1 = Rr(x1,x2)
+		cdf2 = Rr(x1,x3)
+
+		price = cdf1*S - cdf2*K*math.exp(-r*T)
+
+
+	#Do NOT change or remove the following code
+	print '\n\nThe price of the call is: ' + str(price) + '\n'
+	return price
+
+	# Method a is the fastest. Method b can be fast but inaccurate or take the most time
+	# and be pretty accurate. Method c is on average the second fastest and more accurate
+	# than method b.
+
+#Question 2 
+def Best_dx(S,K,sigma,T,r):
+	"""
+	param S: stock price as float
+	param K: strike price as float
+	param sigma: volatility of stock as float
+	param T: time to maturity of option expressed as a year (using 365 days)
+	param r: risk free interest rate as float
+
+	This function calculates the best delta_x to use when computing the delta of a call option
+	using the central difference formula as given by,
+							f'(x) = [f(x+dx)-f(x-dx)] / 2*dx 
+	for float and double machine precision.
+
+	return: the optimal dx for float and double machine precision
+
+	"""
+	dx_float=dx_double = 0 #Do not remove or alter this line
+
+	S = float(S)
+	K = float(K)
+	T = float(T)
+	sigma = float(sigma)
+	r = float(r)
+
+	d1 = ((math.log(S/K) + (r + 0.5*sigma*sigma)*T)) / float(sigma*math.sqrt(T))
+	d2 = d1 - sigma*math.sqrt(T)
+
+	f_BS = lambda S: ss.norm.cdf(d1)*S - ss.norm.cdf(d2)*K*math.exp(-r*T)
+
+	h = np.arange(-30.,0,1)
+	delx = lambda x: 10.**(x)
+
+	actual_del = ss.norm.cdf(d1)
+
+	err1 = []
+	err2 = []
+	def error1(x):
+		getcontext().prec = 7
+		return (abs(Decimal(actual_del) - ((Decimal(f_BS(S+delx(x))) - Decimal(f_BS(S-delx(x))))/Decimal(2*delx(x)))))
+
+	def error2(x):
+		getcontext().prec = 16
+		return (abs(Decimal(actual_del) - ((Decimal(f_BS(S+delx(x))) - Decimal(f_BS(S-delx(x))))/Decimal(2*delx(x)))))
+		#return np.round((abs((actual_del) - (((f_BS(S+delx(x))) - (f_BS(S-delx(x))))/(2*delx(x))))),6)
+
+	#print h
+	for i in range(len(h)):
+		err1.append((error1(delx(h[i]))))
+		err2.append((error2(delx(h[i]))))
+
+	#print err1.index(min(err1))
+	dx_float = delx(h[err1.index(min(err1))])
+	dx_double = delx(h[err2.index(min(err2))])
+
+	#Do NOT change or remove the following code
+	print 'The best dx for central difference formula for float and double precision are: ' + \
+				str(dx_float) + ', ' + str(dx_double) + '\n'
+	return dx_float, dx_double 
+
+#Question 3
+def pca_yield_curve(t1,t2):
+	"""
+	param t1: the starting time in the format 'yyyy-MM-dd'
+	param t2: the ending time in the format 'yyyy-MM-dd'
+	
+	returns: the first three eigenvalues (in descending order) along with their 
+			 corresponding eigenvectors
+
+	Download historical yields however you wish within python. Do NOT import from a csv.
+	After, preform PCA on the yield curve using daily 1 day yield changes. After which print the 
+	eigenvalues again in desending order along with their respected eigenvectors. 
+	"""
+	lam_sum=lam1=lam2=lam3=1 #Do not remove or alter this line
+	lam1_v=lam2_v=lam3_v = np.zeros((1,11)) #Do not remove or alter this line
+	
+
+	# YOUR CODE GOES HERE
+	yield_curve = Quandl.get("USTREASURY/YIELD",trim_start = t1, trim_end = t2, transformation = "diff")
+	y_c = pd.DataFrame(yield_curve)
+	#print y_c
+	yc = np.matrix(y_c)
+	sigma = np.cov(yc.T)
+	w,v = np.linalg.eig(sigma)
+
+	# np.round(x,6) <- pick 6 or n digits
+	lam_sum = sum(w)
+	lam1 = w[0]
+	lam2 = w[1]
+	lam3 = w[2]
+	lam1_v = v[0,:]
+	lam2_v = v[1,:]
+	lam3_v = v[2,:]
+
+	#Do NOT change or remove the following code
+	print 'The first three eigenvalues are: ' + str(lam1) + ', ' + str(lam2) + ', ' + str(lam3) #Do not change this line
+	print 'Their corresponding eigenvectors are:\n' + str(lam1_v) + '\n' + str(lam2_v) + '\n' + \
+					str(lam3_v)
+	print 'The first three eigen values explain ' +str(float((lam1+lam2+lam3)/lam_sum)*100.0) + '% of the variance' + '\n'
+	lam = [lam1,lam2,lam3]
+	lam_v = [lam1_v,lam2_v,lam3_v]
+	return dict(zip(lam,lam_v)) 
+
+def Vasicek(k,theta,sigma,r0,T):
+    """
+    param k: mean reversion rate as float
+    param theta: mean as float
+    param sigma: volatility (decimal form)
+    param r0: risk free rate (decmial form)
+    param T: time to maturity in years (365 days)
+
+    returns: short term interest rate
+
+    This functions preforms the Vasicek stochasic model and returns the short term
+    interest rate given the above parmaters
+    """
+
+    #DO NOT ALTER OR REMOVE THIS FUNCTION
+    B=1.0/k*(1-np.exp(-k*T))
+    A=np.exp((theta-sigma**2/(2*k**2))*(B-T)-sigma**2/(4*k)*B**2)
+    s=-1/T*np.log(A)+1/T*B*r0
+    return s
+
+#Question 4
+def Calibrate_Vasicek(t1,t2):
+	"""
+	param t1: the starting time in the format 'yyyy-MM-dd'
+	param t2: the ending time in the format 'yyyy-MM-dd'
+
+	returns: the mean and standard deviation for k, theta, sigma, and r
+	over the time frame [t1,t2] as a dictionary D. So that; 
+						D['k'] = (mean_k,std_k) *****NOT A LIST*******
+						D['theta'] = (mean_theta,std_theta)
+						...
+						D['r'] = (mean_r,std_r)
+
+	This function will calculate the optimal k, theta, sigma and r, using the provided
+	Vasicek function above, for each day in [t1, t2] using each U.S. yield for each day, 
+	by using least squared errors. Finally, take the mean and std for each of these 
+	optimal paramaters over the entire interval [t1,t2].  
+
+	HINT: use scipy's minimize function after calculating least squared errors to calibrate
+
+	Please comment at the bottom of this function as to the difficulities in fitting the curve,
+	in particular with the initial guess when optmizing.
+	"""
+	k = theta = sigma = r = 0 #Do not remove or alter this line
+	D = Odict(zip(['k','theta','sigma','r'],[None]*4)) #Do not remove or alter this line
+
+
+	#YOUR CODE GOES HERE
+	yield_curve = Quandl.get("USTREASURY/YIELD",trim_start = t1, trim_end = t2)
+	y_c = pd.DataFrame(yield_curve)
+	yc = np.array(y_c)
+	yc = yc/100.0
+	t_mats = np.array([1./12,3./12,6./12,1.,2.,3.,5.,7.,10.,20.,30.])
+	#print t_mats.shape[0]
+	#print yc.shape[0],yc.shape[1]
+	#print y_c
+
+	k = theta = sigma = r = 0.1
+	res = []
+
+	def mini(p,t_mats,yc):
+		k,theta,sigma,r = p
+		error = (Vasicek(k,theta,sigma,r,t_mats) - yc)
+		return error
+
+	for i in range(yc.shape[0]):
+		x0 = [0.1,0.1,0.1,0.1]
+		abc = yc[i,:]
+		w,v = leastsq(mini,x0, args = (t_mats,abc))
+		res.append(w)
+
+	mean = np.mean(res,axis = 0)
+	std = np.std(res,axis = 0)
+	D['k'] = (mean[0],std[0])
+	D['theta'] = (mean[1],std[1])
+	D['sigma'] = (mean[2],std[2])
+	D['r'] = (mean[3],std[3])
+
+	#Do NOT change or remove the following code
+	for d in D:
+		print 'The mean and std for parameter ' +str(d) +' are: ' + str(D[d])
+	return D
+
+	# It's hard trying to pick an initial guess for the curve-fit as it might lead
+	# to a lot of NaN values. I picked the initial parameters to all be 0.1
+	# because it wasn't too big or small relatively speaking.
+
+
+if __name__ == '__main__':
+	"""
+	DO NOT ALTER THIS CODE FOR YOUR FINAL SUBMISSION AND MAKE SURE YOUR CODE RUNS USING THIS SCRIPT
+	SEE ATTAHCED in.txt file for how to format it for below input then run python as follows:
+			
+			python netID_hw2.py < in.txt > out.txt
+
+			Note: windows may need << and >> instead of < and > 
+
+	
+	This is reading the contents of in.txt into the below variables and saving the output to out.txt
+	Your functions will be tested using this method. Failing to run via this method will result in a
+	lose of points. You may however when testing manually enter these points in by running python 
+	the normal way (ie. without the inequality signs).
+	"""
+
+	S = float(raw_input('Stock Price: '))
+	K = float(raw_input('\nStrike Price: '))
+	sigma = float(raw_input('\nStock Volatility: ')) #expressed in decimal form
+	T = float(raw_input('\nTime to Maturity: ')) #expressed in terms of years
+	r = float(raw_input('\nRisk_Free rate: ')) #expressed in decimal form
+	f_x = raw_input('\nQuestion 1 Method: ')
+	t1 = raw_input('\nStart date: ')
+	t2 = raw_input('\nEnd date: ')
+
+	#Preform Q1
+	BlackScholes(S,K,sigma,T,r,f_x)
+
+	#Preform Q2
+	Best_dx(S,K,sigma,T,r)
+
+	#Preform Q3
+	pca_yield_curve(t1,t2)
+
+	#Preform Q4
+	Calibrate_Vasicek(t1,t2)
+

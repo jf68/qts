@@ -1,0 +1,31 @@
+__author__ = 'James Feng'
+
+# NetID = jf698
+
+import random
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+x0 = 2
+x_final = x0
+
+prob = 0
+
+for i in range(0,10000):
+    x_final = x0
+    while x_final > 0 and x_final < 5:
+        roll = float(random.random())
+        step = 0
+        if roll < 0.5:
+            step = -1
+        else:
+            step = 1
+        x_final += step
+
+    if x_final == 0:
+        prob += 1
+
+
+myprob = float(prob/10000.0)
+print myprob

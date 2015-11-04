@@ -1,0 +1,269 @@
+__author__ = 'JamesFeng'
+# Jing (James) Feng
+#NetID = jf698
+
+from datetime import datetime
+from yahoo_finance import Share
+from pandas.io.data import Options
+
+import math
+import scipy.stats as ss
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+import datetime as dt
+import pandas.io.data
+
+def jgb_3graphs():
+	""""
+	This function calculates the open, close and daily VWAP prices for all the days in
+	the JB2014_JST.csv file and graphs the result.
+
+	return: a tuple of lists where the first element is the open prices, second
+	is the close prices and the third is vwap prices.
+
+	NOTE: Please do not have the file anywhere other than your current working 
+	directory when reading the csv file such that when opening it should be you should only 
+	have to call something like open('JB2014_JST.csv') and NOT 
+	open('/foldname1/foldname2/user/JB2014_JST.csv'))
+
+	NOTE2: This function may take awhile to run depending on how you implement
+	"""
+
+	bonds = pd.read_csv('JB2014_JST.csv')
+	f = np.matrix(bonds)
+
+	date = []
+	open_p = []
+	close_p = []
+
+	price = []
+	volume = []
+	price.append(f[0,3])
+	volume.append(f[0,4])
+	vwap = []
+
+	open_time = dt.time(8,45,0,0)
+	close_time = dt.time(15,2,0,0)
+	date.append(f[0,1])
+
+
+	for i in range(1,f.shape[0]):
+		if f[i,1] == f[i-1,1]:
+			if open_time <= datetime.strptime(f[100,2],'%H:%M:%S.%f').time() and datetime.strptime(f[100,2],'%H:%M:%S.%f').time() <= close_time:
+				price.append(f[i,3])
+				volume.append(f[i,4])
+
+
+		if f[i,1] != f[i-1,1]:
+			if open_time <= datetime.strptime(f[100,2],'%H:%M:%S.%f').time() and datetime.strptime(f[100,2],'%H:%M:%S.%f').time() <= close_time:
+				open_p.append(price[0])
+				close_p.append(price[-1])
+				sum_weights = np.dot(price,volume)
+				total_vol = np.sum(volume)
+				vwap.append(sum_weights/total_vol)
+
+				del price[:]
+				del volume[:]
+
+	x1 = np.arange(len(open_p)) + 1
+	x2 = np.arange(len(close_p)) + 1
+	x3 = np.arange(len(vwap)) + 1
+	plt.plot(x1, np.array(open_p), x2, np.array(close_p), x3, np.array(vwap))
+	plt.show()
+	return [open_p,close_p,vwap]
+
+
+def dayEffect(t1,t2,S,d):
+	"""
+	param t1: the start date in the format 'yyyy-MM-dd'
+	param t2: the end date in the format 'yyyy-MM-dd'
+	param S: the stock symbol as can be found on yahoo finance
+	param d: the day of the week to preform the backtesting where
+	 	0=Monday, 1=Tuesday, ... 4=Friday (5 and 6 are weekends and do not trade)
+	 	(notice this is different from what the pdf states)
+
+	return: profit genereated from the trading strategy
+
+	Function calculates the profit generated from buying a stock at open everyday
+	between t1 and t2 (inclusive) and sells on the close for day d. Profit generated from such
+	a strategy is returned.
+
+	NOTE: please have the day which is the most profitable listed as a comment at the END 
+	of this function
+	"""
+
+	start = np.datetime64(t1)
+	end = np.datetime64(t2)
+	start = start.astype(dt.datetime)
+	end = end.astype(dt.datetime)
+
+	f = pd.io.data.DataReader(S, 'yahoo', start, end)
+
+	tick = np.matrix(f)
+
+	v = np.ones((252,1))
+	tick = np.c_[tick,v]
+
+	for i in range(0,tick.shape[0]):
+		tick[i,6] = i+1
+
+	for i in range(0,tick.shape[0]):
+		tick[i,5] = f.index[i].weekday()
+
+	sum_rets = 0.0
+
+	for j in range (tick.shape[0]):
+		if tick[j,5] == d:
+
+			day_change = (tick[j,3] - tick[j,0])
+
+			sum_rets = sum_rets + day_change
+
+	#print "Returns on day %s was %f percent." %(d, sum_rets)
+
+	return sum_rets
+
+	# After testing every weekday, I find that Wednesday is the best day of the week
+	# for the SPY in 2014.
+
+def BSM(S,K,T,r,sigma,type):
+	d1 = ((math.log(S/K) + (r + 0.5*sigma*sigma)*T)) / float(sigma*math.sqrt(T))
+	d2 = d1 - sigma*math.sqrt(T)
+
+	if type == 'c':
+		return ss.norm.cdf(d1)*S - ss.norm.cdf(d2)*K*math.exp(-r*T)
+	else:
+		return ss.norm.cdf(-d2)*K*math.exp(-r*T) - ss.norm.cdf(-d1)*S
+
+
+def impliedVolBisection(S,K,T,r,Price,x1,x2,Call=True,d=0,tol=0.0001):
+
+	C1 = BSM(S,K,T,r,x1,'c')
+	C2 = BSM(S,K,T,r,x2,'c')
+
+	if C1 - Price < 0 and C2 - Price > 0:
+		x = (x1 + x2) / 2.0
+	elif C1 - Price > 0 and C2 - Price < 0:
+		x = (x1 + x2) / 2.0
+	#else:
+		#print "Your sigmas do not yield values on opposite sides of the root"
+
+	C_new = BSM(S,K,T,r,x,'c')
+
+	while ((x2 - x1)/2.0) >= tol:
+		if (C_new - Price == 0) or ((x2 - x1)/2.0) < tol:
+			return x
+		elif (C_new - Price) < 0:
+			x1 = x
+		else:
+			x2 = x
+
+		if C1 - Price < 0 and C2 - Price > 0:
+			x = (x1 + x2) / 2.0
+		#else:
+			#print "Your sigmas do not yield values on different sides of the root"
+
+		C_new = BSM(S,K,T,r,x,'c')
+
+	return x
+
+def impliedVolNewton(S,K,T,r,Price,x0,Call=True,d=0,tol=0.0001):
+
+	x = x0
+
+	while True:
+		d1 = (math.log(S/K) + (r + 0.5*x*x)*T) / (x*math.sqrt(T))
+		deriv = ss.norm.pdf(d1)*S*math.sqrt(T)
+
+		C_new = BSM(S,K,T,r,x,'c')
+		x1 = x - (C_new - Price)/deriv
+
+		if abs(x1-x) < tol:
+			return x
+		x = x1
+	return x
+
+	# The speed of convergence is the same as the Bisection Method
+
+
+def QuadFit(symbol,strikes,expiry_date,r,Call=True,d=0,tol=.0001):
+	"""
+	param symbol: stock symbol
+	param strikes: list of strikes in increasing order
+	param expiry_date: expiry date in format 'yyyy-MM-dd'
+	param r: risk free rate
+	param Call: optional paramater to inditify put or call
+	param d: optional paramter for divident yield
+	param tol: tolerance for implied vol calculations
+
+	This function fits a quadratic function to the strikes given and graphs 
+	the quadratic function and implied vols on the same graph
+
+	returns: nothing
+
+	NOTE: This function may take awhile to run depending on how you implement.
+	In addition please use 365 days when calculating T and live prices (20 minute delay is OK).
+	See the module yahoo_finance's Share class for a simply way to do this.
+	"""
+
+	date = datetime.strptime(expiry_date, '%Y-%m-%d')
+	option_prices = Options(symbol, 'yahoo').get_call_data(expiry=date)
+	IV = []
+	stock_p = Share(symbol).get_price()
+	time_to_mat = (date-datetime.today()).days/365.0
+
+	for i in range(0,len(strikes)):
+		K = strikes[i]
+		if (option_prices.loc[K,:].iloc[0][2] != 0):
+			C_p = option_prices.loc[K,:].iloc[0][2]
+		else:
+			C_p = option_prices.loc[K,:].iloc[0][0]
+		IV.append(impliedVolBisection(float(stock_p),float(K),float(time_to_mat),r,float(C_p),-2.0,5.0))
+
+	K = np.array(strikes)
+	IV = np.array(IV)
+
+	Phi = np.concatenate((np.matrix(np.ones(len(strikes))),np.matrix(K),np.matrix(K*K))).transpose()
+	f = np.matrix(IV).transpose()
+	b = np.linalg.solve(Phi.transpose()*Phi,Phi.transpose()*f)
+
+	P = Phi * b
+
+	plt.plot(K,P)
+	plt.plot(K,IV,".")
+	plt.ylim(-1,1)
+	plt.show()
+
+
+if __name__ == '__main__':
+
+	S0 = 100.0 #stock price
+	K = 110.0 #strike price
+	T = 3.0 #Years
+	r = 0.1 #rf rate (decimal)
+	c_Price = 37.0 #call price
+	x1 = 0.1 #a or x1 for bisection method 
+	x2 = 0.5 #b or x2 for bisection method 
+	x0 = 0.4 #initial guess for newton's method 
+	symbol = 'SPY' #symbol for option
+	day = 2  #day for dayEffect 0=Monday 1= Tuesday ... 4= Friday
+	strikes = [150,160,170,180,190,195,200,210,220,230] #list of strike prices
+	expiry_date = '2015-12-19' #expiry date for option
+
+
+	#Preform Question 1 Hw1
+	#jgb_3graphs()
+
+	#Preform Question 2 Hw1
+	#dayEffect('2014-01-01','2014-12-31',symbol,day)
+	
+	#Preform Question 3 Hw1
+	#impliedVolBisection(S0,K,T,r,c_Price,x1,x2)
+
+	#Preform Question 4 Hw1
+	#impliedVolNewton(S0,K,T,r,c_Price,x0)
+
+	#Preform Question 5 Hw1
+	QuadFit(symbol,strikes,expiry_date,r)
+

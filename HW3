@@ -1,0 +1,195 @@
+__author__ = 'JamesFeng'
+
+import random
+import math
+import numpy as np
+import scipy as sp
+import pandas as pd
+import pandas.io.data
+from sklearn import linear_model
+import matplotlib.pyplot as plt
+
+# Problem 1
+def readprices(tick,d1,d2):
+    f = pd.io.data.DataReader(tick, 'yahoo', d1, d2)
+    df = pd.DataFrame(f)
+    return df['Adj Close']
+
+df = pd.DataFrame()
+df['GS'] = readprices('GS','2014-01-01', '2015-10-01')
+df['MS'] = readprices('MS','2014-01-01', '2015-10-01')
+
+df['log_GS'] = np.log(df['GS'])
+df['log_MS'] = np.log(df['MS'])
+
+residuals = []
+monthly_returns = []
+
+def linreg(df,d1,d2):
+    X_train = np.matrix(df.ix[d1:d2,'log_MS'].values).T
+    Y_train = df.ix[d1:d2,'log_GS'].values
+
+    lr = linear_model.LinearRegression()
+    lrFit = lr.fit(X_train, Y_train)
+    X_n = Y_train[-1] - lrFit.predict(X_train[-1])
+    return lrFit.coef_, lrFit.intercept_, X_n
+
+# part i
+print 'part 1(i)'
+a,b,c = linreg(df,'2014-01-01','2015-01-01')
+print list(a), b, list(c)
+residuals.append(c)
+
+# part ii
+def comprets(df,d1,d2,X_n):
+    start = 0
+    end = 0
+    rets = 0
+    if X_n > 0:
+        start = df['GS'].ix[d1] - df['MS'].ix[d1]
+        end = -(df['GS'].ix[d2] - df['MS'].ix[d2])
+        rets = -(start+end)
+    else:
+        start = -(df['GS'].ix[d1] - df['MS'].ix[d1])
+        end = df['GS'].ix[d2] - df['MS'].ix[d2]
+        rets = -(start+end)
+    return rets
+
+print 'part ii'
+ls_ret = comprets(df,'2015-01-02','2015-01-30',c)
+print ls_ret
+monthly_returns.append(ls_ret)
+
+# part iii
+# February
+a,b,c = linreg(df,'2014-02-01','2015-02-01')
+ls_ret = comprets(df,'2015-02-02','2015-02-27',c)
+residuals.append(c)
+monthly_returns.append(ls_ret)
+
+# March
+a,b,c = linreg(df,'2014-03-01','2015-03-01')
+ls_ret = comprets(df,'2015-03-02','2015-03-31',c)
+residuals.append(c)
+monthly_returns.append(ls_ret)
+
+# April
+a,b,c = linreg(df,'2014-04-01','2015-04-01')
+ls_ret = comprets(df,'2015-04-01','2015-04-30',c)
+residuals.append(c)
+monthly_returns.append(ls_ret)
+
+# May
+a,b,c = linreg(df,'2014-05-01','2015-05-01')
+ls_ret = comprets(df,'2015-05-01','2015-05-29',c)
+residuals.append(c)
+monthly_returns.append(ls_ret)
+
+# June
+a,b,c = linreg(df,'2014-06-01','2015-06-01')
+ls_ret = comprets(df,'2015-06-01','2015-06-30',c)
+residuals.append(c)
+monthly_returns.append(ls_ret)
+
+# July
+a,b,c = linreg(df,'2014-07-01','2015-07-01')
+ls_ret = comprets(df,'2015-07-01','2015-07-31',c)
+residuals.append(c)
+monthly_returns.append(ls_ret)
+
+# August
+a,b,c = linreg(df,'2014-08-01','2015-08-01')
+ls_ret = comprets(df,'2015-08-03','2015-08-31',c)
+residuals.append(c)
+monthly_returns.append(ls_ret)
+
+# September
+a,b,c = linreg(df,'2014-09-01','2015-09-01')
+ls_ret = comprets(df,'2015-09-01','2015-09-30',c)
+residuals.append(c)
+monthly_returns.append(ls_ret)
+
+residuals = np.array(residuals).T
+monthly_returns = np.matrix(monthly_returns)
+#plt.plot(residuals,monthly_returns,'.')
+#plt.show()
+
+
+# Problem 2
+sigma = 0.2
+n = 0.0001
+gamma = 0.01
+tau = 0.01
+dt = 0.01
+risk_av = 0.001
+
+# Part i
+X = 10000
+T = 1
+
+n2 = n-0.5*gamma*tau
+kappa2 = math.sqrt(risk_av*sigma*sigma/(n2*n2))
+sinh = lambda x: 0.5*(math.exp(x) - math.exp(-x))
+#shares = lambda t: X*sinh(kappa2*(T-t))/sinh(kappa2*(T))
+
+t = np.arange(0,1,dt)
+y = map(lambda t: X*sinh(kappa2*(T-t))/sinh(kappa2*(T)),t)
+plt.plot(t,y)
+
+risk_av = 0.01
+kappa2 = math.sqrt(risk_av*sigma*sigma/(n2*n2))
+y = map(lambda t: X*sinh(kappa2*(T-t))/sinh(kappa2*(T)),t)
+plt.plot(t,y)
+'''
+risk_av = 0.1
+kappa2 = math.sqrt(risk_av*sigma*sigma/(n2*n2))
+y = map(lambda t: X*sinh(kappa2*(T-t))/sinh(kappa2*(T)),t)
+plt.plot(t,y)
+'''
+#plt.show()
+
+
+lambda1 = 1.85
+mu = 0.94
+theta1 = 0.71
+
+# Problem 3
+sum_pj = 0
+n = 10000
+for i in range(0,n):
+    X_b = 5
+    X_a = 2
+    while (X_b != 0 and X_a != 0):
+        flagb = 0
+        flaga = 0
+        p_up_b = lambda1/(2*mu + 2*lambda1 + theta1*X_b + theta1*X_a)
+        p_down_b = (mu + theta1*X_b)/(2*mu + 2*lambda1 + theta1*X_b + theta1*X_a)
+        p_up_a = lambda1/(2*mu + 2*lambda1 + theta1*X_b + theta1*X_a)
+        p_down_a = (mu + theta1*X_a)/(2*mu + 2*lambda1 + theta1*X_b + theta1*X_a)
+        rnd = random.random()
+
+        if rnd < p_up_b:
+            X_b = X_b + 1
+        elif (rnd >= p_up_b and rnd < p_up_b + p_down_b):
+            X_b = X_b - 1
+        elif (rnd >= p_up_b + p_down_b and rnd < p_up_a + p_up_b + p_down_b):
+            X_a = X_a + 1
+        else:
+            X_a = X_a - 1
+        #print X_b, X_a
+    if (X_b == 0 and X_a != 0):
+        pj = 0
+
+    elif (X_b != 0 and X_a == 0):
+        pj = 1
+    elif (X_b == 0 and X_a == 0):
+        pj = 1
+
+    sum_pj = sum_pj + pj
+    #print sum_pj
+
+prob = float(sum_pj)/float(n)
+print prob
+
+
+#Problem 4

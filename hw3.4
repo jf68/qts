@@ -1,0 +1,91 @@
+
+'''
+# Problem 4
+sum_pj = 0
+n = 100000
+for i in range(0,n):
+	X_b = 5
+	X_a = 5
+	my_b = 0
+	while (my_b < 5 and X_a > 0):
+		p_up_b = lambda1/(2*mu + 2*lambda1 + theta1*X_b + theta1*X_a)
+		p_down_b = (mu + theta1*X_b)/(2*mu + 2*lambda1 + theta1*X_b + theta1*X_a)
+		p_up_a = lambda1/(2*mu + 2*lambda1 + theta1*X_b + theta1*X_a)
+		p_down_a = (mu + theta1*X_a)/(2*mu + 2*lambda1 + theta1*X_b + theta1*X_a)
+		rnd = random.random()
+
+		if rnd < p_up_b:
+			X_b = X_b + 1
+		elif (rnd >= p_up_b and rnd < p_up_b + p_down_b):
+			X_b = X_b - 1
+			my_b = my_b + 1
+		elif (rnd >= p_up_b + p_down_b and rnd < p_up_a + p_up_b + p_down_b):
+			X_a = X_a + 1
+		else:
+			X_a = X_a - 1
+		print X_b, X_a, my_b
+	if (my_b == 5 and X_a > 0):
+		pj = 1
+
+
+	sum_pj = sum_pj + pj
+	#print sum_pj
+
+
+prob = float(sum_pj)/float(n)
+print prob
+
+'''
+#Problem 4
+sum_pj = 0
+n = 1000000
+for i in range(0,n):
+	X_b = 5
+	X_a = 5
+	my_b = 5
+	while (my_b != 1 and X_a > 0):
+		p_up_b = lambda1/(2*mu + 2*lambda1 + theta1*X_b + theta1*X_a)
+		p_cancel_b = (theta1*X_b)/(2*mu + 2*lambda1 + theta1*X_b + theta1*X_a)
+		p_market_b = mu/(2*mu + 2*lambda1 + theta1*X_b + theta1*X_a)
+		p_up_a = lambda1/(2*mu + 2*lambda1 + theta1*X_b + theta1*X_a)
+		p_down_a = (mu + theta1*X_a)/(2*mu + 2*lambda1 + theta1*X_b + theta1*X_a)
+		rnd = random.random()
+
+		if rnd < p_up_b:
+			X_b = X_b + 1
+		elif (rnd >= p_up_b and rnd < p_up_b + p_market_b):
+			X_b = X_b - 1
+			my_b = my_b - 1
+		elif (rnd >= p_up_b + p_cancel_b and rnd < p_up_b + p_market_b + p_cancel_b):
+			X_b = X_b - 1
+			my_b -= 1
+		elif (rnd >= p_up_b + p_market_b + p_cancel_b and rnd < p_up_a + p_up_b + p_market_b + p_cancel_b):
+			X_a = X_a + 1
+		else:
+			X_a = X_a - 1
+
+	while (my_b != 0 and X_a != 0):
+		p_up_b = lambda1/(2*mu + 2*lambda1 + theta1*X_b + theta1*X_a)
+		p_market_b = mu/(2*mu + 2*lambda1 + theta1*X_b + theta1*X_a)
+		p_up_a = lambda1/(2*mu + 2*lambda1 + theta1*X_b + theta1*X_a)
+		p_down_a = (mu + theta1*X_a)/(2*mu + 2*lambda1 + theta1*X_b + theta1*X_a)
+		rnd = random.random()
+		P = p_up_b + p_market_b + p_up_a + p_down_a
+		rnd = rnd*P
+		if rnd < p_up_b:
+			X_b = X_b + 1
+		elif (rnd >= p_up_b and rnd < p_up_b + p_market_b):
+			X_b = X_b - 1
+			my_b = my_b - 1
+		elif (rnd >= p_up_b + p_market_b and rnd < p_up_a + p_up_b + p_market_b):
+			X_a = X_a + 1
+		else:
+			X_a = X_a - 1
+			
+	if (my_b == 0 and X_a != 0):
+		sum_pj += 1
+
+
+
+prob = float(sum_pj)/float(n)
+print prob

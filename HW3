@@ -128,7 +128,7 @@ X = 10000
 T = 1
 
 n2 = n-0.5*gamma*tau
-kappa2 = math.sqrt(risk_av*sigma*sigma/(n2*n2))
+kappa2 = math.sqrt(risk_av*sigma*sigma/n2)
 sinh = lambda x: 0.5*(math.exp(x) - math.exp(-x))
 #shares = lambda t: X*sinh(kappa2*(T-t))/sinh(kappa2*(T))
 
@@ -137,12 +137,12 @@ y = map(lambda t: X*sinh(kappa2*(T-t))/sinh(kappa2*(T)),t)
 plt.plot(t,y)
 
 risk_av = 0.01
-kappa2 = math.sqrt(risk_av*sigma*sigma/(n2*n2))
+kappa2 = math.sqrt(risk_av*sigma*sigma/n2)
 y = map(lambda t: X*sinh(kappa2*(T-t))/sinh(kappa2*(T)),t)
 plt.plot(t,y)
 '''
 risk_av = 0.1
-kappa2 = math.sqrt(risk_av*sigma*sigma/(n2*n2))
+kappa2 = math.sqrt(risk_av*sigma*sigma/n2)
 y = map(lambda t: X*sinh(kappa2*(T-t))/sinh(kappa2*(T)),t)
 plt.plot(t,y)
 '''

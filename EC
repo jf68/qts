@@ -1,0 +1,100 @@
+from selenium import webdriver
+from apscheduler.scheduler import Scheduler
+import datetime as dt
+import sys
+import xlsxwriter as excel
+import smtplib
+import mimetypes
+from email.mime.multipart import MIMEMultipart
+from email import encoders
+from email.message import Message
+from email.mime.audio import MIMEAudio
+from email.mime.base import MIMEBase
+from email.mime.image import MIMEImage
+from email.mime.text import MIMEText
+import xlsxwriter as excel
+#import getpass 
+
+def send_mail(emailto,emailfrom,usr,psw,fileToSend,body,subject):
+	"""
+	param emailto: str of the email address to be sent to
+	param emailfrom: str of the email address that will send the email
+	param usr: str of the part of the email address prior to the '@'
+	param psw: str of the password for the email address
+	param fileToSend: a str containing the name of the file to email
+	param body: a str that will compose the body of the email
+	param subject: str of the subject of the email
+	"""
+
+	msg = MIMEMultipart()
+	msg["From"] = emailfrom
+	msg["To"] = emailto
+	msg["Subject"] = subject
+	
+	msg.attach(MIMEText(body,'plain'))
+
+	ctype, encoding = mimetypes.guess_type(fileToSend)
+	if ctype is None or encoding is not None:
+	    ctype = "application/octet-stream"
+
+	maintype, subtype = ctype.split("/", 1)
+
+	if maintype == "text":
+	    fp = open(fileToSend)
+	    # Note: we should handle calculating the charset
+	    attachment = MIMEText(fp.read(), _subtype=subtype)
+	    fp.close()
+	elif maintype == "image":
+	    fp = open(fileToSend, "rb")
+	    attachment = MIMEImage(fp.read(), _subtype=subtype)
+	    fp.close()
+	elif maintype == "audio":
+	    fp = open(fileToSend, "rb")
+	    attachment = MIMEAudio(fp.read(), _subtype=subtype)
+	    fp.close()
+	else:
+	    fp = open(fileToSend, "rb")
+	    attachment = MIMEBase(maintype, subtype)
+	    attachment.set_payload(fp.read())
+	    fp.close()
+	    encoders.encode_base64(attachment)
+	attachment.add_header("Content-Disposition", "attachment", filename=fileToSend)
+	msg.attach(attachment)
+
+	server = smtplib.SMTP("smtp.gmail.com:587")
+	server.starttls()
+	server.login(usr,psw)
+	server.sendmail(emailfrom, emailto, msg.as_string())
+	server.quit()
+
+def get_stock_price(stock):
+	driver = webdriver.Firefox()
+	driver.get("https://www.ishares.com/us/")
+	qoutebox = driver.find_element_by_xpath(".//*[@id='identifierWrapper']/p")
+	qoutebox.send_keys('AGG')
+	driver.find_element_by_xpath(".//*[@id='btnQuotes']").click()
+	stock = driver.find_element_by_xpath(".//*[@id='yfs_l84_f']").text
+								#  .//*[@id='yfs_l84_gm']
+	driver.close()
+
+def sample_excel():
+	wb = excel.Workbook('jf698ec.xlsx')
+	ws = wb.add_worksheet('My Sheet')
+	ws.write(0,0,'Int')
+	for i in range(100):
+		ws.write(i+1,0,str(i))
+	wb.close()
+
+def hello_world(text):
+	print text
+
+
+if __name__ == '__main__':
+
+	sched = Scheduler()
+	sched.start()
+
+	sched.add_date_job(hello_world, dt.datetime(2015, 12, 7, 12, 8, 10),['Hello World'])
+
+	while len(sched.get_jobs()) > 0: 
+		pass
